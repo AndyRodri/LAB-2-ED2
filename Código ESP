@@ -1,0 +1,142 @@
+#include <stdio.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/gpio.h"
+#include "sdkconfig.h"
+
+// Definición de pines
+#define LED1_GPIO 4
+#define LED2_GPIO 5
+#define LED3_GPIO 18
+#define LED4_GPIO 19
+
+#define MODE_BUTTON_GPIO 15
+#define INC_BUTTON_GPIO 2
+#define DEC_BUTTON_GPIO 0
+
+// Variables globales
+int counter = 0;
+bool isBinaryMode = true;
+
+// Declaración de funciones
+void handle_mode_button();
+void binary_counter_mode();
+void decade_counter_mode();
+void update_binary_leds(int value);
+void update_decade_leds(int value);
+
+void app_main() {
+    // Configuración de pines GPIO
+    gpio_config_t io_conf;
+
+    // Configuración de pines de salida (LEDs)
+    io_conf.intr_type = GPIO_INTR_DISABLE;
+    io_conf.mode = GPIO_MODE_OUTPUT;
+    io_conf.pin_bit_mask = ((1ULL<<LED1_GPIO) | (1ULL<<LED2_GPIO) | (1ULL<<LED3_GPIO) | (1ULL<<LED4_GPIO));
+    io_conf.pull_down_en = 0;
+    io_conf.pull_up_en = 0;
+    gpio_config(&io_conf);
+
+    // Configuración de pines de entrada (Botones)
+    io_conf.intr_type = GPIO_INTR_DISABLE;
+    io_conf.mode = GPIO_MODE_INPUT;
+    io_conf.pin_bit_mask = ((1ULL<<MODE_BUTTON_GPIO) | (1ULL<<INC_BUTTON_GPIO) | (1ULL<<DEC_BUTTON_GPIO));
+    io_conf.pull_down_en = 0;
+    io_conf.pull_up_en = 1;
+    gpio_config(&io_conf);
+
+    while (1) {
+        handle_mode_button();
+
+        if (isBinaryMode) {
+            binary_counter_mode();
+        } else {
+            decade_counter_mode();
+        }
+
+        vTaskDelay(10 / portTICK_PERIOD_MS); // Delay para evitar cambios rápidos
+    }
+}
+
+void handle_mode_button() {
+    if (gpio_get_level(MODE_BUTTON_GPIO) == 0) { // Adjust for INPUT_PULLUP
+        vTaskDelay(200 / portTICK_PERIOD_MS); // Debounce delay
+        isBinaryMode = !isBinaryMode; // Toggle mode
+        printf("Mode changed to: %s\n", isBinaryMode ? "Binary" : "Decade");
+        while (gpio_get_level(MODE_BUTTON_GPIO) == 0) {
+            vTaskDelay(10 / portTICK_PERIOD_MS); // Wait for button release
+        }
+    }
+}
+
+void binary_counter_mode() {
+    if (gpio_get_level(INC_BUTTON_GPIO) == 0) { // Adjust for INPUT_PULLUP
+        vTaskDelay(200 / portTICK_PERIOD_MS); // Delay to avoid button bouncing
+        counter++;
+        if (counter > 15) {
+            counter = 0;
+        }
+        update_binary_leds(counter);
+        while (gpio_get_level(INC_BUTTON_GPIO) == 0) {
+            vTaskDelay(10 / portTICK_PERIOD_MS); // Wait for button release
+        }
+    }
+
+    if (gpio_get_level(DEC_BUTTON_GPIO) == 0) { // Adjust for INPUT_PULLUP
+        vTaskDelay(200 / portTICK_PERIOD_MS); // Delay to avoid button bouncing
+        counter--;
+        if (counter < 0) {
+            counter = 15;
+        }
+        update_binary_leds(counter);
+        while (gpio_get_level(DEC_BUTTON_GPIO) == 0) {
+            vTaskDelay(10 / portTICK_PERIOD_MS); // Wait for button release
+        }
+    }
+}
+
+void decade_counter_mode() {
+    if (gpio_get_level(INC_BUTTON_GPIO) == 0) { // Adjust for INPUT_PULLUP
+        vTaskDelay(200 / portTICK_PERIOD_MS); // Delay to avoid button bouncing
+        counter++;
+        if (counter > 3) {
+            counter = 0;
+        }
+        update_decade_leds(counter);
+        while (gpio_get_level(INC_BUTTON_GPIO) == 0) {
+            vTaskDelay(10 / portTICK_PERIOD_MS); // Wait for button release
+        }
+    }
+
+    if (gpio_get_level(DEC_BUTTON_GPIO) == 0) { // Adjust for INPUT_PULLUP
+        vTaskDelay(200 / portTICK_PERIOD_MS); // Delay to avoid button bouncing
+        counter--;
+        if (counter < 0) {
+            counter = 3;
+        }
+        update_decade_leds(counter);
+        while (gpio_get_level(DEC_BUTTON_GPIO) == 0) {
+            vTaskDelay(10 / portTICK_PERIOD_MS); // Wait for button release
+        }
+    }
+}
+
+void update_binary_leds(int value) {
+    gpio_set_level(LED1_GPIO, (value >> 0) & 0x01);
+    gpio_set_level(LED2_GPIO, (value >> 1) & 0x01);
+    gpio_set_level(LED3_GPIO, (value >> 2) & 0x01);
+    gpio_set_level(LED4_GPIO, (value >> 3) & 0x01);
+    printf("Binary Counter value: %d\n", value);
+}
+
+void update_decade_leds(int value) {
+    gpio_set_level(LED1_GPIO, 0);
+    gpio_set_level(LED2_GPIO, 0);
+    gpio_set_level(LED3_GPIO, 0);
+    gpio_set_level(LED4_GPIO, 0);
+
+    if (value >= 0 && value < 4) {
+        gpio_set_level(ledPins[value], 1);
+    }
+    printf("Decade Counter value: %d\n", value);
+}
