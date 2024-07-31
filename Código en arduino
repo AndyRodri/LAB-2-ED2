@@ -1,0 +1,122 @@
+#include <Arduino.h>
+
+// Declaraciones de funciones
+void handleModeButton();
+void binaryCounterMode();
+void decadeCounterMode();
+void updateBinaryLEDs(int value);
+void updateDecadeLEDs(int value);
+
+int ledPins[] = {4, 5, 18, 19};
+int counter = 0;
+bool isBinaryMode = true;
+
+const int modeButtonPin = 15; // Pin del botón para cambiar de modo
+const int incrementButtonPin = 16; // Pin del botón de incremento
+const int decrementButtonPin = 17; // Pin del botón de decremento
+
+void setup() {
+  for (int i = 0; i < 4; i++) {
+    pinMode(ledPins[i], OUTPUT);
+  }
+  pinMode(modeButtonPin, INPUT_PULLUP);
+  pinMode(incrementButtonPin, INPUT_PULLUP);
+  pinMode(decrementButtonPin, INPUT_PULLUP);
+
+  Serial.begin(115200);
+}
+
+void loop() {
+  handleModeButton();
+
+  if (isBinaryMode) {
+    binaryCounterMode();
+  } else {
+    decadeCounterMode();
+  }
+
+  delay(10); // Delay to prevent rapid toggling
+}
+
+void handleModeButton() {
+  if (digitalRead(modeButtonPin) == LOW) { // Ajustar para INPUT_PULLUP
+    delay(200); // Retraso para desbounce
+    isBinaryMode = !isBinaryMode; // Cambiar de modo
+    Serial.print("Modo cambiado a: ");
+    Serial.println(isBinaryMode ? "Binario" : "Decimal");
+    while (digitalRead(modeButtonPin) == LOW) {
+      delay(10); // Esperar a que se suelte el botón
+    }
+  }
+}
+
+void binaryCounterMode() {
+  if (digitalRead(incrementButtonPin) == LOW) { // Ajustar para INPUT_PULLUP
+    delay(200); // Retraso para evitar rebotes
+    counter++;
+    if (counter > 15) {
+      counter = 0;
+    }
+    updateBinaryLEDs(counter);
+    while (digitalRead(incrementButtonPin) == LOW) {
+      delay(10); // Esperar a que se suelte el botón
+    }
+  }
+
+  if (digitalRead(decrementButtonPin) == LOW) { // Ajustar para INPUT_PULLUP
+    delay(200); // Retraso para evitar rebotes
+    counter--;
+    if (counter < 0) {
+      counter = 15;
+    }
+    updateBinaryLEDs(counter);
+    while (digitalRead(decrementButtonPin) == LOW) {
+      delay(10); // Esperar a que se suelte el botón
+    }
+  }
+}
+
+void decadeCounterMode() {
+  if (digitalRead(incrementButtonPin) == LOW) { // Ajustar para INPUT_PULLUP
+    delay(200); // Retraso para evitar rebotes
+    counter++;
+    if (counter > 3) {
+      counter = 0;
+    }
+    updateDecadeLEDs(counter);
+    while (digitalRead(incrementButtonPin) == LOW) {
+      delay(10); // Esperar a que se suelte el botón
+    }
+  }
+
+  if (digitalRead(decrementButtonPin) == LOW) { // Ajustar para INPUT_PULLUP
+    delay(200); // Retraso para evitar rebotes
+    counter--;
+    if (counter < 0) {
+      counter = 3;
+    }
+    updateDecadeLEDs(counter);
+    while (digitalRead(decrementButtonPin) == LOW) {
+      delay(10); // Esperar a que se suelte el botón
+    }
+  }
+}
+
+void updateBinaryLEDs(int value) {
+  for (int i = 0; i < 4; i++) {
+    digitalWrite(ledPins[i], (value >> i) & 0b0001);
+  }
+  Serial.print("Valor del contador binario: ");
+  Serial.println(value, BIN);
+}
+
+void updateDecadeLEDs(int value) {
+  for (int i = 0; i < 4; i++) {
+    digitalWrite(ledPins[i], LOW);
+  }
+  if (value >= 0 && value < 4) {
+    digitalWrite(ledPins[value], HIGH);
+  }
+  Serial.print("Valor del contador decimal: ");
+  Serial.println(value);
+}
